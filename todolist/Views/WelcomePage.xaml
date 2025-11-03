@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="todolist.Views.WelcomePage"
+    Title="Dobrodošli">
+
+    <VerticalStackLayout Padding="16" Spacing="12">
+
+        <Label x:Name="WelcomeLabel" FontSize="20" HorizontalOptions="Center" />
+        <Label x:Name="EmailLabel" HorizontalOptions="Center" />
+
+        <Frame Padding="10" CornerRadius="8">
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Dodaj novi zadatak" FontAttributes="Bold" />
+                <Entry x:Name="TitleEntry" Placeholder="Naslov zadatka" />
+                <Editor x:Name="DescriptionEditor" Placeholder="Opis (opcionalno)" AutoSize="TextChanges" HeightRequest="80" />
+                <HorizontalStackLayout Spacing="8">
+                    <Button Text="Dodaj" Clicked="OnAddClicked" />
+                    <Button Text="Obriši sve" Clicked="OnClearAllClicked" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Frame>
+
+        <Label Text="Moji zadaci:" FontAttributes="Bold" />
+
+        <CollectionView x:Name="TodosCollectionView" SelectionMode="None" HeightRequest="300">
+            <CollectionView.EmptyView>
+                <Label Text="Još nema zadataka. Dodaj prvi!" HorizontalOptions="Center" VerticalOptions="Center" />
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Padding="8" Margin="6" CornerRadius="6">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                            <Label Text="{Binding Title}" FontAttributes="Bold" Grid.Row="0" Grid.Column="0" />
+                            <Label Text="{Binding CreatedAt, StringFormat='{0:yyyy-MM-dd HH:mm}'}" FontSize="10" Grid.Row="0" Grid.Column="1" HorizontalOptions="End" />
+                            <Label Text="{Binding Description}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" />
+                            <Label Text="{Binding Done, StringFormat='Done: {0}'}" Grid.Row="2" Grid.Column="0" VerticalOptions="Center" />
+                            <HorizontalStackLayout Grid.Row="2" Grid.Column="1" Spacing="8" HorizontalOptions="End">
+                                <Button Text="Toggle" Clicked="OnToggleDoneClicked" CommandParameter="{Binding Id}" />
+                                <Button Text="Obriši" Clicked="OnDeleteClicked" CommandParameter="{Binding Id}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Button Text="Odjavi se" Clicked="OnLogoutClicked" />
+
+    </VerticalStackLayout>
+</ContentPage>
