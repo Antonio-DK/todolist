@@ -2,7 +2,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
-using Microsoft.Maui.ApplicationModel;
+using Microsoft.Maui.ApplicationModel; // MainThread
 using Microsoft.Maui.Controls;
 using todolist.Models;
 using todolist.Services;
@@ -22,13 +22,8 @@ public partial class WelcomePage : ContentPage
         WelcomeLabel.Text = $"Bok, {user.DisplayName}!";
         EmailLabel.Text = user.Email;
 
-        // Postavi ItemsSource jednom - nećemo zamjenjivati ovu instancu
         TodosCollectionView.ItemsSource = _todos;
 
-        // Debug: ispiši path gdje se sprema json
-        Debug.WriteLine($"AppDataDirectory: {FileSystem.AppDataDirectory}");
-
-        // Učitaj postojeće zadatke
         _ = LoadTodosAsync();
     }
 
@@ -37,13 +32,12 @@ public partial class WelcomePage : ContentPage
         try
         {
             var list = await TodoService.GetTodosForUserAsync(_user.Id);
-            Debug.WriteLine($"LoadTodosAsync: found {list.Count} todos for user {_user.Id}");
-            // update kolekcije na main thread
-            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+            MainThread.BeginInvokeOnMainThread(() =>
             {
                 _todos.Clear();
                 foreach (var t in list) _todos.Add(t);
             });
+            Debug.WriteLine($"Loaded {list.Count} todos for user {_user.Id}");
         }
         catch (Exception ex)
         {
@@ -54,27 +48,22 @@ public partial class WelcomePage : ContentPage
     private async void OnAddClicked(object sender, EventArgs e)
     {
         var title = TitleEntry.Text?.Trim();
-        var desc = DescriptionEditor.Text?.Trim();
-
         if (string.IsNullOrEmpty(title))
         {
             await DisplayAlert("Greška", "Unesi naslov zadatka.", "OK");
             return;
         }
 
+        var desc = DescriptionEditor.Text?.Trim();
+
         try
         {
             var added = await TodoService.AddTodoAsync(_user.Id, title, desc);
-            Debug.WriteLine($"Added todo id={added.Id} for user {_user.Id}");
-
-            // update UI na main thread
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                _todos.Insert(0, added);
-            });
-
+            MainThread.BeginInvokeOnMainThread(() => _todos.Insert(0, added));
             TitleEntry.Text = string.Empty;
             DescriptionEditor.Text = string.Empty;
+
+            Debug.WriteLine($"Added todo id={added.Id}");
         }
         catch (Exception ex)
         {
@@ -87,7 +76,11 @@ public partial class WelcomePage : ContentPage
     {
         try
         {
-            int id = ParseCommandParameter(sender);
+            if (!(sender is Button b)) return;
+            var itemCtx = b.BindingContext as TodoItem;
+            if (itemCtx == null) return;
+
+            int id = itemCtx.Id;
             var ok = await TodoService.DeleteTodoAsync(id, _user.Id);
             Debug.WriteLine($"Delete todo id={id} ok={ok}");
             if (ok)
@@ -109,22 +102,46 @@ public partial class WelcomePage : ContentPage
     {
         try
         {
-            int id = ParseCommandParameter(sender);
+            if (!(sender is Button b)) return;
+
+            // direktno iz BindingContext dohvatimo item — ovo je najpouzdanije
+            var item = b.BindingContext as TodoItem;
+            if (item == null)
+            {
+                Debug.WriteLine("OnToggleDoneClicked: BindingContext nije TodoItem");
+                return;
+            }
+
+            var id = item.Id;
+            Debug.WriteLine($"OnToggleDoneClicked: id={id} before Done={item.Done}");
+
+            // pozovemo servis koji sam toggla i sprema
             var ok = await TodoService.ToggleDoneAsync(id, _user.Id);
-            Debug.WriteLine($"Toggle todo id={id} ok={ok}");
+            Debug.WriteLine($"TodoService.ToggleDoneAsync returned {ok} for id={id}");
+
             if (ok)
             {
-                MainThread.BeginInvokeOnMainThread(() =>
+                // dohvatimo ažurirani objekt iz servisa (sigurno stanje)
+                var list = await TodoService.GetTodosForUserAsync(_user.Id);
+                var updated = list.FirstOrDefault(t => t.Id == id);
+
+                if (updated != null)
                 {
-                    var item = _todos.FirstOrDefault(t => t.Id == id);
-                    if (item != null)
+                    // update UI na glavnom threadu — ovo aktivira INotifyPropertyChanged
+                    MainThread.BeginInvokeOnMainThread(() =>
                     {
-                        item.Done = !item.Done;
-                        var idx = _todos.IndexOf(item);
-                        _todos.RemoveAt(idx);
-                        _todos.Insert(idx, item);
-                    }
-                });
+                        item.Done = updated.Done;
+                        Debug.WriteLine($"UI updated item id={id} Done={item.Done}");
+                    });
+                }
+                else
+                {
+                    Debug.WriteLine($"Updated item not found in service after toggle: id={id}");
+                }
+            }
+            else
+            {
+                Debug.WriteLine($"Toggle failed in service for id={id}");
             }
         }
         catch (Exception ex)
@@ -158,7 +175,6 @@ public partial class WelcomePage : ContentPage
             var param = b.CommandParameter;
             if (param is int i) return i;
             if (param is string s && int.TryParse(s, out var parsed)) return parsed;
-            // možda binding nije postavljen - pokušaj dohvatiti Id iz BindingContext
             if (b.BindingContext is TodoItem ti) return ti.Id;
         }
         return -1;

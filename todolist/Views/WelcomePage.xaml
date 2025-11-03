@@ -36,7 +36,8 @@
                             <Label Text="{Binding Title}" FontAttributes="Bold" Grid.Row="0" Grid.Column="0" />
                             <Label Text="{Binding CreatedAt, StringFormat='{0:yyyy-MM-dd HH:mm}'}" FontSize="10" Grid.Row="0" Grid.Column="1" HorizontalOptions="End" />
                             <Label Text="{Binding Description}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" />
-                            <Label Text="{Binding Done, StringFormat='Done: {0}'}" Grid.Row="2" Grid.Column="0" VerticalOptions="Center" />
+                            <!-- label koji prikazuje Da/Ne -->
+                            <Label Text="{Binding DoneText}" Grid.Row="2" Grid.Column="0" VerticalOptions="Center" />
                             <HorizontalStackLayout Grid.Row="2" Grid.Column="1" Spacing="8" HorizontalOptions="End">
                                 <Button Text="Toggle" Clicked="OnToggleDoneClicked" CommandParameter="{Binding Id}" />
                                 <Button Text="Obriši" Clicked="OnDeleteClicked" CommandParameter="{Binding Id}" />
@@ -48,6 +49,5 @@
         </CollectionView>
 
         <Button Text="Odjavi se" Clicked="OnLogoutClicked" />
-
     </VerticalStackLayout>
 </ContentPage>

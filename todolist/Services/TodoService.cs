@@ -1,46 +1,63 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using todolist.Models;
+using Microsoft.Maui.Storage; // FileSystem
 
 namespace todolist.Services;
 
 public static class TodoService
 {
     private static readonly string _filePath = Path.Combine(FileSystem.AppDataDirectory, "todos.json");
-    private static readonly List<TodoItem> _todos = new();
+    private static List<TodoItem> _todos = new();
     private static int _nextId = 1;
     private static bool _loaded = false;
 
     private static async Task EnsureLoadedAsync()
     {
         if (_loaded) return;
+
         if (File.Exists(_filePath))
         {
             try
             {
                 var json = await File.ReadAllTextAsync(_filePath);
-                var data = JsonSerializer.Deserialize<List<TodoItem>>(json);
-                if (data != null && data.Count > 0)
+                if (!string.IsNullOrWhiteSpace(json))
                 {
-                    _todos.AddRange(data);
-                    _nextId = _todos.Max(t => t.Id) + 1;
+                    var data = JsonSerializer.Deserialize<List<TodoItem>>(json);
+                    if (data != null)
+                    {
+                        _todos = data;
+                        _nextId = _todos.Count > 0 ? _todos.Max(t => t.Id) + 1 : 1;
+                    }
                 }
             }
             catch
             {
-                // ako je korumpiran file — ignoriraj i kreni prazno
+                // ako je korumpiran file => resetiraj u prazan
+                _todos = new List<TodoItem>();
+                _nextId = 1;
             }
         }
+
         _loaded = true;
     }
 
     private static async Task SaveAsync()
     {
-        var json = JsonSerializer.Serialize(_todos, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(_filePath, json);
+        // osiguraj directory (obično postoji)
+        try
+        {
+            var json = JsonSerializer.Serialize(_todos, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(_filePath, json);
+        }
+        catch
+        {
+            // ne baci; moguće da nema prava na zapis u nekim okruženjima
+        }
     }
 
     public static async Task<List<TodoItem>> GetTodosForUserAsync(int userId)
@@ -60,7 +77,7 @@ public static class TodoService
             UserId = userId,
             Title = title ?? string.Empty,
             Description = description,
-            CreatedAt = System.DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
             Done = false
         };
         _todos.Add(item);
